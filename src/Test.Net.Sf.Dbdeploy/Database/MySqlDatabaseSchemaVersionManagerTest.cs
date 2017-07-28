@@ -1,3 +1,5 @@
+using MySql.Data.MySqlClient;
+
 namespace Net.Sf.Dbdeploy.Database
 {
     using System;
@@ -16,8 +18,8 @@ namespace Net.Sf.Dbdeploy.Database
     using Net.Sf.Dbdeploy.Scripts;
     using NUnit.Framework;
 
-    [Category("MSSQL"), Category("DbIntegration")]
-    public class MsSqlDatabaseSchemaVersionManagerTest : AbstractDatabaseSchemaVersionManagerTest
+    [Category("MYSQL"), Category("DbIntegration")]
+    public class MySqlDatabaseSchemaVersionManagerTest : AbstractDatabaseSchemaVersionManagerTest
     {
         private static string _connectionString;
         private const string FOLDER = "Scripts";
@@ -27,7 +29,7 @@ namespace Net.Sf.Dbdeploy.Database
             "No table found with name 'ChangeLog'.",
         };
 
-		private const string DBMS = "mssql";
+		private const string DBMS = "mysql";
 
         protected override string ConnectionString
         {
@@ -35,8 +37,8 @@ namespace Net.Sf.Dbdeploy.Database
             {
                 if (_connectionString == null)
                 {
-                    _connectionString = ConfigurationManager.AppSettings["ConnString-" + Environment.MachineName]
-                                        ?? ConfigurationManager.AppSettings["ConnString"];
+                    _connectionString = ConfigurationManager.AppSettings["MySqlConnString-" + Environment.MachineName]
+                                        ?? ConfigurationManager.AppSettings["MySqlConnString"];
                 }
                 return _connectionString;
             }
@@ -129,48 +131,22 @@ namespace Net.Sf.Dbdeploy.Database
         }
 
         /// <summary>
-        /// Tests that <see cref="DatabaseSchemaVersionManager" /> can create a change log table under a specified schema.
-        /// </summary>
-        [Test]
-        public void TestShouldHandleCreatingChangeLogTableWithSchema()
-        {
-            this.EnsureTableDoesNotExist("log.Installs");
-
-            var factory = new DbmsFactory(this.Dbms, this.ConnectionString);
-            var executer = new QueryExecuter(factory);
-            var databaseSchemaManager = new DatabaseSchemaVersionManager(executer, factory.CreateDbmsSyntax(), "log.Installs");
-
-            var applier = new DirectToDbApplier(executer, databaseSchemaManager, new QueryStatementSplitter(),
-                factory.CreateDbmsSyntax(), "log.Installs", new NullWriter());
-            
-            applier.Apply(new ChangeScript[] {}, createChangeLogTable: true);
-
-            this.AssertTableExists("log.Installs");
-        }
-
-        /// <summary>
         /// Ensures the table does not exist.
         /// </summary>
         /// <param name="tableName">Name of the table.</param>
         protected override void EnsureTableDoesNotExist(string tableName)
         {
-            var syntax = new MsSqlDbmsSyntax();
+            var syntax = new MySqlDbmsSyntax();
             var tableInfo = syntax.GetTableInfo(tableName);
             this.ExecuteSql(string.Format(
                 CultureInfo.InvariantCulture,
-@"IF (EXISTS (SELECT * 
-    FROM INFORMATION_SCHEMA.TABLES 
-    WHERE TABLE_SCHEMA = '{0}' 
-    AND  TABLE_NAME = '{1}'))
-BEGIN
-    DROP Table {0}.{1}
-END", 
+@"DROP TABLE IF EXISTS {0}.{1}", 
                 tableInfo.Schema, tableInfo.TableName));
         }
 
         protected override IDbConnection GetConnection()
         {
-            return new SqlConnection(_connectionString);
+            return new MySqlConnection(_connectionString);
         }
 
         protected override void InsertRowIntoTable(int i)
@@ -178,7 +154,7 @@ END",
             this.ExecuteSql("INSERT INTO " + TableName
                        + " (Folder, ScriptNumber, StartDate, CompleteDate, AppliedBy, ScriptName, ScriptStatus, ScriptOutput) VALUES ( "
                        + "'" + FOLDER + "', " + i
-                       + ", getdate(), getdate(), user_name(), 'Unit test', 1, '')");
+                       + ", CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, USER(), 'Unit test', 1, '')");
         }
     }
 }
